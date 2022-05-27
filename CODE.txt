@@ -1,0 +1,102 @@
+#include <avr/io.h>
+#include <util/delay.h>
+#include<avr/interrupt.h>
+#include "lcd.h"
+
+void InitPWM()
+{
+
+TCCR2=(1<<WGM20)|(1<<WGM21)|(2<<COM20)|(2<<CS20);
+DDRD|=(1<<PD7);
+}
+
+
+void SetPWMOutput(uint8_t duty)
+{
+   OCR2=duty;
+}
+
+
+void Wait()
+{
+ _delay_loop_2(2000);
+}
+
+void InitADC()
+{
+ADMUX=(1<<REFS0);                       
+ADCSRA=(1<<ADEN)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0); 
+}
+
+uint16_t ReadADC(uint8_t ch)
+{
+   ch=ch&0b00000111;
+    ADMUX = (ADMUX & 0xF8)|ch;
+   ADCSRA|=(1<<ADSC);
+   while(!(ADCSRA & (1<<ADIF)));
+
+   ADCSRA|=(1<<ADIF);
+
+   return(ADC);
+}
+
+
+void main()
+{
+   uint8_t speed=0;
+   uint16_t adc_result=0;
+   DDRB=0XFF;
+   PORTB=0X00;
+
+   LCDInit(LS_BLINK|LS_ULINE);
+   LCDClear();
+   LCDWriteStringXY(0,0,"     WELCOME    ");
+   LCDWriteStringXY(0,1,"       LUNA     ");
+
+   InitADC();
+   InitPWM();
+   
+   PORTB|=(1<<0);
+   PORTB&=~(1<<1);
+
+   _delay_ms(2000);
+
+	while(1)
+	{
+	  LCDClear();
+	  adc_result=ReadADC(0); 
+      LCDWriteStringXY(0,0," VEHICLE  SPEED ");
+
+	  if(adc_result<150)
+	  {
+	  LCDWriteStringXY(0,1,"       LOW      ");
+	  SetPWMOutput(140);
+
+	  PORTB|=(1<<3); // YELLOW
+      PORTB&=~(1<<4);
+	  PORTB&=~(1<<5);
+
+	  }
+
+	  else if(adc_result<600)
+	  {
+	  LCDWriteStringXY(0,1,"     MEDIUM     ");
+	  SetPWMOutput(200);
+
+	  PORTB|=(1<<4); // GREEN
+      PORTB&=~(1<<3);
+	  PORTB&=~(1<<5);
+	  }
+
+	  else if(adc_result<= 1023)
+	  {
+	  LCDWriteStringXY(0,1,"      HIGH      ");
+	  SetPWMOutput(255);
+
+	  PORTB|=(1<<5); // RED
+      PORTB&=~(1<<4);
+	  PORTB&=~(1<<3);
+	  }
+	  _delay_ms(700);
+	  }
+}
